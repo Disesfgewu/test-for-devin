@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RAG Docs QA</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>RAG Docs QA</h1>
+      <p id="status" class="status">Loading…</p>
+    </header>
+
+    <main>
+      <section class="panel">
+        <h2>Documents</h2>
+        <form id="upload-form">
+          <input id="file-input" type="file" accept=".pdf,.txt,.md,.markdown" required />
+          <button type="submit">Upload &amp; index</button>
+        </form>
+        <p id="upload-message" class="message"></p>
+        <ul id="document-list" class="documents"></ul>
+      </section>
+
+      <section class="panel">
+        <h2>Ask</h2>
+        <form id="ask-form">
+          <textarea id="question" rows="3" placeholder="What does the document say about…?" required></textarea>
+          <button type="submit">Ask</button>
+        </form>
+        <div id="answer" class="answer hidden"></div>
+        <div id="citations" class="citations"></div>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
