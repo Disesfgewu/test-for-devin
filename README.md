@@ -28,6 +28,13 @@ All settings are environment variables; every one of them is optional.
 | `LOCAL_EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | sentence-transformers model |
 | `INDEX_PATH` | `data/index.json` | Where the index is persisted |
 | `MAX_UPLOAD_BYTES` | `20971520` | Upload size limit |
+| `MAX_PDF_PAGES` | `500` | Page limit for PDF parsing |
+| `MAX_TEXT_CHARS` | `2000000` | Extracted-text limit per document |
+| `API_TOKEN` | unset | When set, `/api/*` requires `Authorization: Bearer <token>` |
+
+The API is unauthenticated by default, which is fine for a local single-user
+run. Set `API_TOKEN` before exposing it to a network; the web UI then prompts
+for the token and stores it in `localStorage`.
 
 Backend selection with `EMBEDDING_BACKEND=auto`: OpenAI if a key is present,
 otherwise a local sentence-transformers model, otherwise TF-IDF. The TF-IDF

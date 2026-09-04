@@ -8,8 +8,25 @@ const questionInput = document.getElementById("question");
 const answerEl = document.getElementById("answer");
 const citationsEl = document.getElementById("citations");
 
-async function request(url, options) {
-  const response = await fetch(url, options);
+const TOKEN_KEY = "rag-docs-qa-token";
+
+function authHeaders() {
+  const token = localStorage.getItem(TOKEN_KEY);
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function request(url, options = {}, retryOnUnauthorized = true) {
+  const response = await fetch(url, {
+    ...options,
+    headers: { ...(options.headers || {}), ...authHeaders() },
+  });
+  if (response.status === 401 && retryOnUnauthorized) {
+    const token = window.prompt("This server requires an API token:");
+    if (token) {
+      localStorage.setItem(TOKEN_KEY, token);
+      return request(url, options, false);
+    }
+  }
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     throw new Error(body.detail || `Request failed (${response.status})`);

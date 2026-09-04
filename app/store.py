@@ -9,7 +9,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .embeddings import Embedder
+from .embeddings import CorpusEmbedder, Embedder
 
 
 @dataclass
@@ -40,6 +40,10 @@ class VectorStore:
     def backend(self) -> str:
         return self._embedder.name
 
+    @property
+    def _corpus_scoped(self) -> bool:
+        return isinstance(self._embedder, CorpusEmbedder)
+
     def documents(self) -> list[dict]:
         seen: dict[str, dict] = {}
         for chunk in self._chunks:
@@ -69,8 +73,9 @@ class VectorStore:
         with self._lock:
             vectors = self._embedder.embed_documents([c.text for c in new_chunks])
             self._chunks.extend(new_chunks)
-            if getattr(self._embedder, "refits_whole_corpus", False):
-                # Fallback backend re-embeds everything, so vectors cover the full corpus.
+            if self._corpus_scoped:
+                # These embedders re-fit on every document, so the returned
+                # matrix already covers the whole corpus.
                 self._vectors = vectors
             elif self._vectors is None:
                 self._vectors = vectors
@@ -86,7 +91,9 @@ class VectorStore:
             if len(keep) == len(self._chunks):
                 return False
             self._chunks = [self._chunks[i] for i in keep]
-            if self._vectors is not None:
+            if self._corpus_scoped:
+                self._rebuild_corpus()
+            elif self._vectors is not None:
                 self._vectors = self._vectors[keep] if keep else None
             self._save()
             return True
@@ -104,12 +111,21 @@ class VectorStore:
                 if scores[i] > 0
             ]
 
+    def _rebuild_corpus(self) -> None:
+        """Re-fit a corpus-scoped embedder on the surviving chunks."""
+        self._embedder.reset()
+        self._vectors = (
+            self._embedder.embed_documents([c.text for c in self._chunks])
+            if self._chunks
+            else None
+        )
+
     def _save(self) -> None:
         if self._persist_path is None:
             return
         self._persist_path.parent.mkdir(parents=True, exist_ok=True)
         payload = {
-            "backend": self._embedder.name,
+            "identity": self._embedder.identity,
             "chunks": [asdict(c) for c in self._chunks],
             "vectors": self._vectors.tolist() if self._vectors is not None else None,
         }
@@ -119,16 +135,12 @@ class VectorStore:
         if self._persist_path is None or not self._persist_path.exists():
             return
         payload = json.loads(self._persist_path.read_text())
-        if payload.get("backend") != self._embedder.name:
-            # Vectors from another backend are not comparable; start fresh.
+        if payload.get("identity") != self._embedder.identity:
+            # Vectors from another model or backend are not comparable.
             return
         self._chunks = [Chunk(**c) for c in payload.get("chunks", [])]
-        if getattr(self._embedder, "refits_whole_corpus", False):
-            self._vectors = (
-                self._embedder.embed_documents([c.text for c in self._chunks])
-                if self._chunks
-                else None
-            )
+        if self._corpus_scoped:
+            self._rebuild_corpus()
             return
         vectors = payload.get("vectors")
         self._vectors = np.array(vectors, dtype=np.float32) if vectors else None
